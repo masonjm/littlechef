@@ -353,7 +353,7 @@ def _configure_node():
     if env.loglevel == "debug":
         print(
             "Executing Chef Solo with the following command:\n{0}".format(cmd))
-    with settings(hide('warnings', 'running'), warn_only=True):
+    with settings(shell_env(http_proxy=env.http_proxy), hide('warnings', 'running'), warn_only=True):
         output = sudo(cmd)
     if (output.failed or "FATAL: Stacktrace dumped" in output or
             ("Chef Run complete" not in output and

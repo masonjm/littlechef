@@ -146,23 +146,25 @@ def _gem_install():
     """Install Chef from gems"""
     # Install RubyGems from Source
     rubygems_version = "1.8.10"
-    run('wget http://production.cf.rubygems.org/rubygems/rubygems-{0}.tgz'
-        .format(rubygems_version))
-    run('tar zxf rubygems-{0}.tgz'.format(rubygems_version))
-    with cd('rubygems-{0}'.format(rubygems_version)):
-        sudo('ruby setup.rb --no-format-executable'.format(rubygems_version))
-    sudo('rm -rf rubygems-{0} rubygems-{0}.tgz'.format(rubygems_version))
-    sudo('gem install --no-rdoc --no-ri chef')
+    with settings(shell_env(http_proxy=env.http_proxy)):
+        run('wget http://production.cf.rubygems.org/rubygems/rubygems-{0}.tgz'
+            .format(rubygems_version))
+        run('tar zxf rubygems-{0}.tgz'.format(rubygems_version))
+        with cd('rubygems-{0}'.format(rubygems_version)):
+            sudo('ruby setup.rb --no-format-executable'.format(rubygems_version))
+        sudo('rm -rf rubygems-{0} rubygems-{0}.tgz'.format(rubygems_version))
+        sudo('gem install --no-rdoc --no-ri chef')
 
 
 def _gem_apt_install():
     """Install Chef from gems for apt based distros"""
-    with hide('stdout', 'running'):
+    with settings(shell_env(http_proxy=env.http_proxy), hide('stdout', 'running')):
         sudo('apt-get update')
     prefix = "DEBIAN_FRONTEND=noninteractive"
     packages = "ruby ruby-dev libopenssl-ruby irb build-essential wget"
     packages += " ssl-cert rsync"
-    sudo('{0} apt-get --yes install {1}'.format(prefix, packages))
+    with shell_env(http_proxy=env.http_proxy):
+        sudo('{0} apt-get --yes install {1}'.format(prefix, packages))
     _gem_install()
 
 
@@ -170,7 +172,7 @@ def _gem_rpm_install():
     """Install Chef from gems for rpm based distros"""
     _add_rpm_repos()
     needed_packages = "make ruby ruby-shadow gcc gcc-c++ ruby-devel wget rsync"
-    with show('running'):
+    with settings(shell_env(http_proxy=env.http_proxy), show('running')):
         sudo('yum -y install {0}'.format(needed_packages))
     _gem_install()
 
@@ -186,7 +188,7 @@ def _gem_pacman_install():
 
 def _apt_install(distro, version, stop_client='yes'):
     """Install Chef for debian based distros"""
-    with settings(hide('stdout', 'running')):
+    with settings(shell_env(http_proxy=env.http_proxy), hide('stdout', 'running')):
         with settings(hide('warnings'), warn_only=True):
             wget_is_installed = sudo('which wget')
             if wget_is_installed.failed:
@@ -275,12 +277,15 @@ def _add_rpm_repos():
     if rhel_version == "6":
         epel_release = "epel-release-6-8.noarch"
     with show('running'):
+        http_proxy = ""
+        if env.http_proxy:
+            http_proxy = " --httpproxy {0}".format(env.http_proxy)
         # Install the EPEL Yum Repository.
         with settings(hide('warnings', 'running'), warn_only=True):
             repo_url = "http://dl.fedoraproject.org"
             repo_path = "/pub/epel/{0}/i386/".format(rhel_version)
             repo_path += "{0}.rpm".format(epel_release)
-            output = sudo('rpm -Uvh {0}{1}'.format(repo_url, repo_path))
+            output = sudo('rpm -Uvh {0}{1}{2}'.format(repo_url, repo_path, http_proxy))
             installed = "package {0} is already installed".format(epel_release)
             if output.failed and installed not in output:
                 abort(output)
@@ -288,7 +293,7 @@ def _add_rpm_repos():
         with settings(hide('warnings', 'running'), warn_only=True):
             repo_url = "http://rbel.co"
             repo_path = "/rbel{0}".format(rhel_version)
-            output = sudo('rpm -Uvh {0}{1}'.format(repo_url, repo_path))
+            output = sudo('rpm -Uvh {0}{1}{2}'.format(repo_url, repo_path, http_proxy))
             installed = "package rbel{0}-release-1.0-2.el{0}".format(
                         rhel_version)
             installed += ".noarch is already installed"
@@ -299,7 +304,7 @@ def _add_rpm_repos():
 def _rpm_install():
     """Install Chef for rpm based distros"""
     _add_rpm_repos()
-    with show('running'):
+    with settings(shell_env(http_proxy=env.http_proxy), show('running')):
         # Ensure we have an up-to-date ruby, as we need >=1.8.7
         sudo('yum -y upgrade ruby*')
         # Install Chef
@@ -308,5 +313,5 @@ def _rpm_install():
 
 def _emerge_install():
     """Install Chef for Gentoo"""
-    with show('running'):
+    with settings(shell_env(http_proxy=env.http_proxy), show('running')):
         sudo("USE='-test' ACCEPT_KEYWORDS='~amd64' emerge -u chef")

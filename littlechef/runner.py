@@ -126,7 +126,7 @@ def node(*nodes):
             'nodes_with_role:' not in sys.argv[-1]):
         # If user didn't type recipe:X, role:Y or deploy_chef,
         # configure the nodes
-        with settings():
+        with settings(shell_env(http_proxy=env.http_proxy)):
             execute(_node_runner)
         chef.remove_local_node_data_bag()
 
@@ -224,7 +224,7 @@ def ssh(name):
     print("\nExecuting the command '{0}' on the node {1}...".format(
           name, env.host_string))
     # Execute remotely using either the sudo or the run fabric functions
-    with settings(hide("warnings"), warn_only=True):
+    with settings(shell_env(http_proxy=env.http_proxy), hide("warnings"), warn_only=True):
         if name.startswith("sudo "):
             sudo(name[5:])
         else:
@@ -431,6 +431,12 @@ def _readconfig():
         env.follow_symlinks = config.getboolean('kitchen', 'follow_symlinks')
     except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
         env.follow_symlinks = False
+
+    # Use http proxy
+    try:
+        env.http_proxy = config.get('kitchen', 'http_proxy')
+    except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
+        env.http_proxy = None
 
 
 # Only read config if fix is being used and we are not creating a new kitchen
